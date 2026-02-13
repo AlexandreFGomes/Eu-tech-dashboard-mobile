@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EU Tech Geopolitics News Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#1e3a8a" />
+</head>
+
+<body class="bg-gray-50">
+  <div class="min-h-screen pb-8">
+    <!-- Header -->
+    <header class="bg-blue-900 text-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 py-6">
+        <h1 class="text-2xl md:text-3xl font-bold">EU Tech Geopolitics Dashboard</h1>
+        <p class="text-blue-200 mt-2 text-sm md:text-base">Real-time news from your chosen sources</p>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+      <!-- Configuration -->
+      <div class="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
+        <h2 class="text-lg md:text-xl font-bold text-gray-900 mb-4">Configure Sources</h2>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Region</label>
+            <select id="regionSelect" onchange="updateSourcesList()" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm md:text-base">
+              <option value="netherlands">Netherlands</option>
+              <option value="portugal">Portugal</option>
+              <option value="europe">Europe</option>
+              <option value="us">United States</option>
+              <option value="global">Global</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Timeframe</label>
+            <select id="timeframeSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm md:text-base">
+              <option value="6">Last 6 hours</option>
+              <option value="24" selected>Last 24 hours</option>
+              <option value="72">Last 3 days</option>
+              <option value="168">Last week</option>
+              <option value="720">Last month</option>
+              <option value="999999">All time</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Topics</label>
+          <div id="topicsGrid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+        </div>
+
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700">
+              Sources: <span id="currentRegionLabel" class="font-normal">Netherlands</span>
+            </label>
+            <button onclick="toggleSourcesPanel()" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+              Customize →
+            </button>
+          </div>
+          <div id="sourcesList" class="text-sm text-gray-600 bg-gray-50 rounded p-3"></div>
+        </div>
+
+        <div id="sourcesPanel" class="hidden mb-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <h3 class="font-medium text-gray-900 mb-3 text-sm md:text-base">Enable/Disable Sources</h3>
+          <div id="sourcesCheckboxes" class="space-y-2 mb-4 max-h-64 overflow-y-auto"></div>
+
+          <div class="border-t border-gray-200 pt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Add News Source by Website</label>
+            <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-xs text-blue-800">
+              <strong>How it works:</strong> Enter any news website URL (e.g., 'nrc.nl') and the server will discover its RSS feed.
+            </div>
+            <div class="space-y-2">
+              <input
+                type="text"
+                id="customSourceUrl"
+                placeholder="Website URL (e.g. 'binnenlandsbestuur.nl', 'nrc.nl')"
+                class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              />
+              <button
+                onclick="findAndAddSource()"
+                id="addSourceBtn"
+                class="w-full px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 disabled:bg-gray-400"
+              >
+                Find RSS Feed & Add Source
+              </button>
+              <div id="feedDiscoveryStatus" class="text-xs"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Custom sources can be deleted with the ✕ button</p>
+          </div>
+        </div>
+
+        <button
+          onclick="updateNews()"
+          id="updateBtn"
+          class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 text-sm md:text-base"
+        >
+          Fetch Latest News
+        </button>
+      </div>
+
+      <div id="loadingState" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 md:p-6 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+          <span class="text-blue-800 font-medium text-sm md:text-base">Fetching real news…</span>
+        </div>
+      </div>
+
+      <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 md:p-6 mb-6">
+        <p class="text-red-800 font-medium text-sm md:text-base" id="errorMessage"></p>
+      </div>
+
+      <div id="newsContainer" class="space-y-4 md:space-y-6"></div>
+
+      <div id="emptyState" class="bg-white rounded-lg shadow-md p-8 md:p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+        </svg>
+        <h3 class="text-base md:text-lg font-medium text-gray-900 mb-2">Ready to fetch news</h3>
+        <p class="text-sm md:text-base text-gray-600">Select region, topics, and timeframe, then click “Fetch Latest News”</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // 1) IMPORTANT: Put your Cloudflare Worker base URL here
+    const WORKER_BASE = "https://YOUR-WORKER.your-subdomain.workers.dev";
+    const RSS_ENDPOINT = `${WORKER_BASE}/rss`;
+    const DISCOVER_ENDPOINT = `${WORKER_BASE}/discover`;
+
+    // RSS feed URLs for news sources
+    let NEWS_SOURCES = {
+      netherlands: [
+        { name: 'NOS Algemeen', url: 'https://feeds.nos.nl/nosnieuwsalgemeen', enabled: true },
+        { name: 'NU.nl Algemeen', url: 'https://www.nu.nl/rss/Algemeen', enabled: true },
+        { name: 'NU.nl Tech', url: 'https://www.nu.nl/rss/Tech', enabled: true },
+        { name: 'Tweakers', url: 'https://feeds.feedburner.com/tweakers/mixed', enabled: true },
+        { name: 'Tweakers Security', url: 'https://feeds.feedburner.com/tweakers/security', enabled: false },
+        { name: 'NRC', url: 'https://www.nrc.nl/rss/', enabled: false },
+        { name: 'De Volkskrant', url: 'https://www.volkskrant.nl/voorpagina/rss.xml', enabled: false }
+      ],
+      portugal: [
+        { name: 'Público', url: 'https://www.publico.pt/rss', enabled: true },
+        { name: 'Observador', url: 'https://observador.pt/feed/', enabled: true },
+        { name: 'SAPO TEK', url: 'https://tek.sapo.pt/feed/', enabled: true },
+        { name: 'Expresso', url: 'https://expresso.pt/rss', enabled: false }
+      ],
+      europe: [
+        { name: 'EURACTIV', url: 'https://www.euractiv.com/feed/', enabled: true },
+        { name: 'Politico EU', url: 'https://www.politico.eu/feed/', enabled: true },
+        { name: 'EU News (EurActiv)', url: 'https://www.euractiv.com/sections/politics/feed/', enabled: false }
+      ],
+      us: [
+        { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', enabled: true },
+        { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', enabled: true },
+        { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', enabled: true },
+        { name: 'Wired', url: 'https://www.wired.com/feed/rss', enabled: false }
+      ],
+      global: [
+        { name: 'BBC Technology', url: 'http://feeds.bbci.co.uk/news/technology/rss.xml', enabled: true },
+        { name: 'The Guardian Tech', url: 'https://www.theguardian.com/technology/rss', enabled: true }
+      ]
+    };
+
+    const TOPICS = [
+      { id: 'ai', label: 'AI & Regulation', keywords: ['AI', 'artificial intelligence', 'ChatGPT', 'machine learning', 'LLM', 'AI Act'] },
+      { id: 'digital', label: 'Digital Policy', keywords: ['DMA', 'DSA', 'Digital Markets Act', 'Digital Services Act', 'regulation', 'directive'] },
+      { id: 'semiconductors', label: 'Semiconductors', keywords: ['semiconductor', 'chip', 'ASML', 'TSMC', 'Intel', 'processor'] },
+      { id: 'china', label: 'China Relations', keywords: ['China', 'Chinese', 'Beijing', 'Taiwan'] },
+      { id: 'us', label: 'US Relations', keywords: ['USA', 'United States', 'American', 'Washington'] },
+      { id: 'privacy', label: 'Privacy & Data', keywords: ['privacy', 'data protection', 'GDPR', 'surveillance', 'encryption'] },
+      { id: 'tech', label: 'Tech Industry', keywords: ['startup', 'tech company', 'platform', 'big tech'] },
+      { id: 'innovation', label: 'Innovation', keywords: ['innovation', 'research', 'development', 'breakthrough', 'patent'] },
+      { id: 'policy', label: 'Policy', keywords: ['Commission', 'Parliament', 'regulator', 'ministry', 'government', 'law'] }
+    ];
+
+    let selectedTopics = new Set(['ai', 'digital', 'policy', 'semiconductors']);
+
+    window.addEventListener('load', () => {
+      renderTopics();
+      updateSourcesList();
+      loadSettings();
+      registerServiceWorker();
+    });
+
+    function registerServiceWorker() {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      }
+    }
+
+    function toggleSourcesPanel() {
+      const panel = document.getElementById('sourcesPanel');
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) renderSourcesCheckboxes();
+    }
+
+    function renderSourcesCheckboxes() {
+      const region = document.getElementById('regionSelect').value;
+      const sources = NEWS_SOURCES[region] || [];
+      const container = document.getElementById('sourcesCheckboxes');
+      container.innerHTML = '';
+
+      sources.forEach((source, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 p-2 hover:bg-white rounded';
+
+        div.innerHTML = `
+          <input
+            type="checkbox"
+            id="source-${index}"
+            ${source.enabled ? 'checked' : ''}
+            onchange="toggleSource('${region}', ${index})"
+            class="w-4 h-4 text-blue-600 border-gray-300 rounded flex-shrink-0"
+          />
+          <label for="source-${index}" class="flex-1 text-sm text-gray-700 cursor-pointer">
+            ${escapeHtml(source.name)}
+          </label>
+          ${source.custom ? `
+            <button
+              onclick="deleteSource('${region}', ${index})"
+              class="text-red-600 hover:text-red-800 text-sm px-2 flex-shrink-0"
+              title="Delete source"
+            >✕</button>
+          ` : ''}
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    function toggleSource(region, index) {
+      NEWS_SOURCES[region][index].enabled = !NEWS_SOURCES[region][index].enabled;
+      updateSourcesList();
+      saveSettings();
+    }
+
+    function deleteSource(region, index) {
+      if (confirm(`Delete "${NEWS_SOURCES[region][index].name}"?`)) {
+        NEWS_SOURCES[region].splice(index, 1);
+        renderSourcesCheckboxes();
+        updateSourcesList();
+        saveSettings();
+      }
+    }
+
+    async function findAndAddSource() {
+      let url = document.getElementById('customSourceUrl').value.trim();
+      if (!url) {
+        alert('Please enter a website URL');
+        return;
+      }
+
+      const statusDiv = document.getElementById('feedDiscoveryStatus');
+      const btn = document.getElementById('addSourceBtn');
+
+      statusDiv.innerHTML = '<p class="text-blue-600">🔍 Searching for RSS feeds…</p>';
+      btn.disabled = true;
+
+      try {
+        const discoverUrl = `${DISCOVER_ENDPOINT}?url=${encodeURIComponent(url)}`;
+        const res = await fetch(discoverUrl);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data?.error || 'Discovery failed');
+
+        const feedUrl = data.feedUrl;
+        if (!feedUrl) {
+          statusDiv.innerHTML = '<p class="text-red-600">✗ No RSS feed found. Try another website or use a known RSS URL.</p>';
+          return;
+        }
+
+        const hostname = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).hostname.replace('www.', '');
+        const baseName = hostname.split('.')[0];
+        const sourceName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+
+        const region = document.getElementById('regionSelect').value;
+
+        const exists = NEWS_SOURCES[region].some(s => s.url === feedUrl);
+        if (exists) {
+          statusDiv.innerHTML = '<p class="text-yellow-600">⚠️ This source already exists in your list</p>';
+          return;
+        }
+
+        NEWS_SOURCES[region].push({
+          name: sourceName,
+          url: feedUrl,
+          enabled: true,
+          custom: true
+        });
+
+        statusDiv.innerHTML = `<p class="text-green-600">✓ Found RSS feed! Added "${escapeHtml(sourceName)}"</p>`;
+        document.getElementById('customSourceUrl').value = '';
+
+        renderSourcesCheckboxes();
+        updateSourcesList();
+        saveSettings();
+
+        setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+      } catch (error) {
+        statusDiv.innerHTML = `<p class="text-red-600">✗ Error: ${escapeHtml(error.message)}</p>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function updateSourcesList() {
+      const region = document.getElementById('regionSelect').value;
+      const sources = NEWS_SOURCES[region] || [];
+      const enabledSources = sources.filter(s => s.enabled);
+
+      document.getElementById('currentRegionLabel').textContent =
+        region.charAt(0).toUpperCase() + region.slice(1);
+
+      const list = document.getElementById('sourcesList');
+      if (enabledSources.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 italic text-xs md:text-sm">No sources enabled. Click "Customize" to enable sources.</p>';
+      } else {
+        list.innerHTML = enabledSources.map(s =>
+          `<span class="inline-block bg-white px-2 py-1 rounded mr-2 mb-1 text-xs">${escapeHtml(s.name)}</span>`
+        ).join('');
+      }
+    }
+
+    function renderTopics() {
+      const container = document.getElementById('topicsGrid');
+      container.innerHTML = '';
+
+      TOPICS.forEach(topic => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2';
+        const isChecked = selectedTopics.has(topic.id);
+
+        div.innerHTML = `
+          <input
+            type="checkbox"
+            id="topic-${topic.id}"
+            value="${topic.id}"
+            ${isChecked ? 'checked' : ''}
+            onchange="toggleTopic('${topic.id}')"
+            class="w-4 h-4 text-blue-600 border-gray-300 rounded"
+          />
+          <label for="topic-${topic.id}" class="text-xs md:text-sm text-gray-700 cursor-pointer">
+            ${escapeHtml(topic.label)}
+          </label>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function toggleTopic(topicId) {
+      if (selectedTopics.has(topicId)) selectedTopics.delete(topicId);
+      else selectedTopics.add(topicId);
+      saveSettings();
+    }
+
+    function saveSettings() {
+      localStorage.setItem('selectedTopics', JSON.stringify([...selectedTopics]));
+      localStorage.setItem('selectedRegion', document.getElementById('regionSelect').value);
+      localStorage.setItem('timeframe', document.getElementById('timeframeSelect').value);
+      localStorage.setItem('newsSources', JSON.stringify(NEWS_SOURCES));
+    }
+
+    function loadSettings() {
+      try {
+        const topics = localStorage.getItem('selectedTopics');
+        if (topics) {
+          selectedTopics = new Set(JSON.parse(topics));
+          renderTopics();
+        }
+
+        const region = localStorage.getItem('selectedRegion');
+        if (region) {
+          document.getElementById('regionSelect').value = region;
+          updateSourcesList();
+        }
+
+        const timeframe = localStorage.getItem('timeframe');
+        if (timeframe) {
+          document.getElementById('timeframeSelect').value = timeframe;
+        }
+
+        const sources = localStorage.getItem('newsSources');
+        if (sources) {
+          const loaded = JSON.parse(sources);
+          Object.keys(loaded).forEach(r => {
+            if (NEWS_SOURCES[r]) NEWS_SOURCES[r] = loaded[r];
+          });
+          updateSourcesList();
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    }
+
+    async function updateNews() {
+      const region = document.getElementById('regionSelect').value;
+      const sources = NEWS_SOURCES[region] || NEWS_SOURCES.global;
+      const timeframeHours = parseInt(document.getElementById('timeframeSelect').value, 10);
+
+      if (selectedTopics.size === 0) {
+        alert('Please select at least one topic');
+        return;
+      }
+
+      const relevantSources = sources.filter(source => source.enabled);
+      if (relevantSources.length === 0) {
+        alert('No sources enabled. Enable sources in "Customize".');
+        return;
+      }
+
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('errorState').classList.add('hidden');
+      document.getElementById('updateBtn').disabled = true;
+
+      try {
+        const allArticles = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const source of relevantSources) {
+          try {
+            const articles = await fetchRSSFeed(source.url, source.name, timeframeHours);
+            if (articles.length > 0) {
+              allArticles.push(...articles);
+            }
+            successCount++;
+          } catch (e) {
+            failCount++;
+            console.warn(`Error fetching ${source.name}:`, e);
+          }
+        }
+
+        if (allArticles.length === 0) {
+          document.getElementById('errorState').classList.remove('hidden');
+          document.getElementById('errorMessage').innerHTML =
+            `No articles found. Successfully fetched ${successCount} source(s), ${failCount} failed.`;
+          return;
+        }
+
+        const deduped = dedupeArticles(allArticles);
+        const filtered = filterByTopics(deduped);
+
+        if (filtered.length === 0) {
+          document.getElementById('errorState').classList.remove('hidden');
+          document.getElementById('errorMessage').innerHTML =
+            `Found ${deduped.length} articles, but none matched your selected topics. Try different topics or expand timeframe.`;
+          return;
+        }
+
+        displayNews(filtered, timeframeHours);
+
+        if (failCount > 0) {
+          const notice = document.createElement('div');
+          notice.className = 'bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-xs text-yellow-800';
+          notice.innerHTML = `⚠️ ${failCount} source(s) failed to load. Showing results from ${successCount - failCount} source(s).`;
+          document.getElementById('newsContainer').insertBefore(notice, document.getElementById('newsContainer').firstChild);
+        }
+
+        saveSettings();
+      } catch (error) {
+        document.getElementById('errorState').classList.remove('hidden');
+        document.getElementById('errorMessage').innerHTML = `Error: ${escapeHtml(error.message)}`;
+      } finally {
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('updateBtn').disabled = false;
+      }
+    }
+
+    async function fetchRSSFeed(feedUrl, sourceName, timeframeHours) {
+      const url = `${RSS_ENDPOINT}?url=${encodeURIComponent(feedUrl)}&hours=${encodeURIComponent(timeframeHours)}&source=${encodeURIComponent(sourceName)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.error || "RSS proxy error");
+
+      const items = data.items || [];
+      return items
+        .filter(it => it.title && it.url)
+        .map(it => ({
+          title: it.title,
+          url: it.url,
+          // If date is null, keep it but show as "unknown time"
+          date: it.date ? new Date(it.date) : null,
+          source: it.source || sourceName,
+          description: it.description || ""
+        }));
+    }
+
+    function filterByTopics(articles) {
+      if (selectedTopics.size === 0) return articles;
+
+      return articles.filter(article => {
+        const text = ((article.title || "") + " " + (article.description || "")).toLowerCase();
+
+        return Array.from(selectedTopics).some(topicId => {
+          const topic = TOPICS.find(t => t.id === topicId);
+          return topic && topic.keywords.some(keyword => text.includes(keyword.toLowerCase()));
+        });
+      });
+    }
+
+    function dedupeArticles(articles) {
+      const seen = new Set();
+      return articles.filter(a => {
+        const key = ((a.url || "") + "||" + (a.title || "")).toLowerCase().trim();
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function displayNews(articles, timeframeHours) {
+      const container = document.getElementById('newsContainer');
+      container.innerHTML = '';
+
+      const summary = document.createElement('div');
+      summary.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4 mb-4 md:mb-6';
+      summary.innerHTML = `
+        <p class="text-xs md:text-sm text-blue-800">
+          <strong>${articles.length} articles</strong> found in the last ${getTimeframeLabel(timeframeHours)}
+        </p>
+      `;
+      container.appendChild(summary);
+
+      const grouped = {};
+      articles.forEach(item => {
+        if (!grouped[item.source]) grouped[item.source] = [];
+        grouped[item.source].push(item);
+      });
+
+      Object.keys(grouped).forEach(source => {
+        grouped[source].sort((a, b) => {
+          const ad = a.date ? a.date.getTime() : 0;
+          const bd = b.date ? b.date.getTime() : 0;
+          return bd - ad;
+        });
+      });
+
+      Object.entries(grouped).forEach(([source, items]) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg shadow-md p-4 md:p-6';
+
+        const itemsHtml = items.map(item => {
+          const timeAgo = item.date ? getTimeAgo(item.date) : 'time unknown';
+          return `
+            <div class="py-3 border-b border-gray-100 last:border-0">
+              <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="block group">
+                <h4 class="font-medium text-gray-900 group-hover:text-blue-600 mb-2 text-sm md:text-base transition-colors">
+                  ${escapeHtml(item.title)}
+                  <svg class="inline-block w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                  </svg>
+                </h4>
+                <span class="text-xs text-gray-500">${escapeHtml(timeAgo)}</span>
+              </a>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <h3 class="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
+            </svg>
+            <span class="flex-1">${escapeHtml(source)}</span>
+            <span class="text-xs md:text-sm font-normal text-gray-500">(${items.length})</span>
+          </h3>
+          ${itemsHtml}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function getTimeframeLabel(hours) {
+      if (hours === 6) return '6 hours';
+      if (hours === 24) return '24 hours';
+      if (hours === 72) return '3 days';
+      if (hours === 168) return 'week';
+      if (hours === 720) return 'month';
+      return 'selected period';
+    }
+
+    function getTimeAgo(date) {
+      const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (seconds < 60) return 'just now';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text ?? "";
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
