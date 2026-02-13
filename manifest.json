@@ -1,0 +1,9 @@
+{
+  "name": "EU Tech Geopolitics Dashboard",
+  "short_name": "EU Tech",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#1e3a8a",
+  "icons": []
+}
